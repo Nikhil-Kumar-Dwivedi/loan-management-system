@@ -1,7 +1,8 @@
 const express = require("express");
 
 const {
-    checkLoanEligibility
+    checkLoanEligibility,
+    reviewLoanApplication
 } = require("../controllers/officerController");
 
 const protect = require("../middleware/authMiddleware");
@@ -15,6 +16,14 @@ router.post(
     protect,
     requireRole("LOAN_OFFICER"),
     checkLoanEligibility
+);
+
+// Submit officer recommendation
+router.post(
+    "/loans/:id/review",
+    protect,
+    requireRole("LOAN_OFFICER"),
+    reviewLoanApplication
 );
 
 module.exports = router;

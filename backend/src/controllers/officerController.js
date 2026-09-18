@@ -47,6 +47,92 @@ const checkLoanEligibility = async (req, res, next) => {
     }
 };
 
+const reviewLoanApplication = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { recommendation, note } = req.body;
+
+        // Find the loan application
+        const loanApplication = await LoanApplication.findById(id);
+
+        if (!loanApplication) {
+            return res.status(404).json({
+                message: "Loan application not found"
+            });
+        }
+
+        // Officer can review only applications under review
+        if (loanApplication.status !== "UNDER_REVIEW") {
+            return res.status(400).json({
+                message: "Only applications under review can be reviewed"
+            });
+        }
+
+        // Validate recommendation
+        const allowedRecommendations = [
+            "APPROVAL",
+            "REJECTION",
+            "MORE_INFO"
+        ];
+
+        if (!allowedRecommendations.includes(recommendation)) {
+            return res.status(400).json({
+                message: "Invalid recommendation"
+            });
+        }
+
+        // Note is required for every officer decision
+        if (!note || !note.trim()) {
+            return res.status(400).json({
+                message: "Review note is required"
+            });
+        }
+
+        // Save officer review
+        loanApplication.officerReview = {
+            officer: req.user._id,
+            recommendation,
+            note: note.trim(),
+            reviewedAt: new Date()
+        };
+
+        // Update status based on recommendation
+        if (recommendation === "APPROVAL") {
+            loanApplication.status =
+                "OFFICER_RECOMMENDED_APPROVAL";
+        }
+
+        if (recommendation === "REJECTION") {
+            loanApplication.status =
+                "OFFICER_RECOMMENDED_REJECTION";
+        }
+
+        if (recommendation === "MORE_INFO") {
+            loanApplication.status =
+                "MORE_INFO_NEEDED";
+
+            loanApplication.additionalInfoRequests.push({
+                note: note.trim(),
+                requestedBy: req.user._id,
+                requestedAt: new Date()
+            });
+        }
+
+        await loanApplication.save();
+
+        return res.status(200).json({
+            message: "Officer review submitted successfully",
+            loanApplication
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+
 module.exports = {
-    checkLoanEligibility
+    checkLoanEligibility,
+    reviewLoanApplication
 };
