@@ -3,6 +3,145 @@ const Document = require("../models/Document");
 const { checkEligibility } = require("../services/eligibilityService");
 const { createAuditLog } = require("../services/auditService");
 
+const getOfficerLoans = async (req, res, next) => {
+    try {
+        const {
+            page = 1,
+            limit = 10,
+            status,
+            loanType,
+            startDate,
+            endDate
+        } = req.query;
+
+        const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+        const limitNumber = Math.min(
+            Math.max(parseInt(limit, 10) || 10, 1),
+            50
+        );
+
+        const skip = (pageNumber - 1) * limitNumber;
+
+        // Build filters
+        const filter = {};
+
+        // By default, officers see applications that are
+        // currently part of the review workflow.
+        if (status) {
+            filter.status = status;
+        } else {
+            filter.status = {
+                $in: [
+                    "SUBMITTED",
+                    "UNDER_REVIEW",
+                    "MORE_INFO_NEEDED"
+                ]
+            };
+        }
+
+        // Filter by loan type
+        if (loanType) {
+            filter["loanDetails.loanType"] = loanType;
+        }
+
+        // Filter by date range
+        if (startDate || endDate) {
+            filter.createdAt = {};
+
+            if (startDate) {
+                const start = new Date(startDate);
+
+                if (Number.isNaN(start.getTime())) {
+                    return res.status(400).json({
+                        message: "Invalid startDate"
+                    });
+                }
+
+                start.setHours(0, 0, 0, 0);
+                filter.createdAt.$gte = start;
+            }
+
+            if (endDate) {
+                const end = new Date(endDate);
+
+                if (Number.isNaN(end.getTime())) {
+                    return res.status(400).json({
+                        message: "Invalid endDate"
+                    });
+                }
+
+                end.setHours(23, 59, 59, 999);
+                filter.createdAt.$lte = end;
+            }
+        }
+
+        const [loans, totalLoans] = await Promise.all([
+            LoanApplication.find(filter)
+                .populate("applicant", "name email")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limitNumber),
+
+            LoanApplication.countDocuments(filter)
+        ]);
+
+        const totalPages = Math.ceil(totalLoans / limitNumber);
+
+        return res.status(200).json({
+            message: "Officer loan queue fetched successfully",
+            loans,
+            pagination: {
+                currentPage: pageNumber,
+                limit: limitNumber,
+                totalLoans,
+                totalPages,
+                hasNextPage: pageNumber < totalPages,
+                hasPreviousPage: pageNumber > 1
+            }
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+const getOfficerLoanDetails = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        const loanApplication = await LoanApplication.findById(id)
+            .populate("applicant", "name email role")
+            .populate(
+                "officerReview.officer",
+                "name email role"
+            )
+            .populate(
+                "adminReview.admin",
+                "name email role"
+            )
+            .populate(
+                "additionalInfoRequests.requestedBy",
+                "name email role"
+            );
+
+        if (!loanApplication) {
+            return res.status(404).json({
+                message: "Loan application not found"
+            });
+        }
+
+        return res.status(200).json({
+            message: "Officer loan details fetched successfully",
+            loanApplication
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+
 const checkLoanEligibility = async (req, res, next) => {
     try {
         const { id } = req.params;
@@ -61,6 +200,7 @@ const checkLoanEligibility = async (req, res, next) => {
         next(error);
     }
 };
+
 
 const reviewLoanApplication = async (req, res, next) => {
     try {
@@ -149,7 +289,7 @@ const reviewLoanApplication = async (req, res, next) => {
                 recommendation
             }
         });
-        
+
         return res.status(200).json({
             message: "Officer review submitted successfully",
             loanApplication
@@ -161,8 +301,9 @@ const reviewLoanApplication = async (req, res, next) => {
 };
 
 
-
 module.exports = {
+    getOfficerLoans,
+    getOfficerLoanDetails,
     checkLoanEligibility,
     reviewLoanApplication
 };
