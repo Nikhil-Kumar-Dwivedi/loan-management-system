@@ -1,4 +1,5 @@
 const LoanApplication = require("../models/LoanApplication");
+const { generateEMISchedule } = require("../services/emiService");
 
 const makeFinalDecision = async (req, res, next) => {
     try {
@@ -63,6 +64,11 @@ const makeFinalDecision = async (req, res, next) => {
         }
 
         await loanApplication.save();
+
+        // Generate EMI schedule only for approved loans
+        if (decision === "APPROVED") {
+            await generateEMISchedule(loanApplication);
+        }
 
         return res.status(200).json({
             message: "Final admin decision submitted successfully",

@@ -8,6 +8,7 @@ const loanRoutes = require("./routes/loanRoutes");
 const documentRoutes = require("./routes/documentRoutes");
 const officerRoutes = require("./routes/officerRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const emiRoutes = require("./routes/emiRoutes");
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use("/api/v1/loans", loanRoutes);
 app.use("/api/v1/loans", documentRoutes);
 app.use("/api/v1/officer", officerRoutes);
 app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/loans", emiRoutes);
 
 
 // Health check
