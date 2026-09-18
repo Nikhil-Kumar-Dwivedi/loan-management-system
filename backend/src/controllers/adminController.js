@@ -1,5 +1,6 @@
 const LoanApplication = require("../models/LoanApplication");
 const { generateEMISchedule } = require("../services/emiService");
+const { createAuditLog } = require("../services/auditService");
 
 const makeFinalDecision = async (req, res, next) => {
     try {
@@ -46,6 +47,8 @@ const makeFinalDecision = async (req, res, next) => {
             });
         }
 
+        const previousStatus = loanApplication.status;
+
         // Save admin review
         loanApplication.adminReview = {
             admin: req.user._id,
@@ -64,6 +67,18 @@ const makeFinalDecision = async (req, res, next) => {
         }
 
         await loanApplication.save();
+
+        // Create audit trail entry
+        await createAuditLog({
+            loanApplication: loanApplication._id,
+            changedBy: req.user._id,
+            fromStatus: previousStatus,
+            toStatus: loanApplication.status,
+            reason: remarks.trim(),
+            metadata: {
+                decision
+            }
+        });
 
         // Generate EMI schedule only for approved loans
         if (decision === "APPROVED") {

@@ -1,6 +1,7 @@
 const LoanApplication = require("../models/LoanApplication");
 const Document = require("../models/Document");
 const { checkEligibility } = require("../services/eligibilityService");
+const { createAuditLog } = require("../services/auditService");
 
 const checkLoanEligibility = async (req, res, next) => {
     try {
@@ -30,11 +31,25 @@ const checkLoanEligibility = async (req, res, next) => {
         loanApplication.eligibilityResult = eligibilityResult;
 
         // Move submitted application into review
+        let statusChanged = false;
+        const previousStatus = loanApplication.status;
+
         if (loanApplication.status === "SUBMITTED") {
             loanApplication.status = "UNDER_REVIEW";
+            statusChanged = true;
         }
 
         await loanApplication.save();
+
+        if (statusChanged) {
+            await createAuditLog({
+                loanApplication: loanApplication._id,
+                changedBy: req.user._id,
+                fromStatus: previousStatus,
+                toStatus: "UNDER_REVIEW",
+                reason: "Loan application moved to officer review after eligibility check"
+            });
+        }
 
         return res.status(200).json({
             message: "Eligibility check completed successfully",
@@ -96,6 +111,9 @@ const reviewLoanApplication = async (req, res, next) => {
             reviewedAt: new Date()
         };
 
+        // Store the previous status for the audit trail
+        const previousStatus = loanApplication.status;
+
         // Update status based on recommendation
         if (recommendation === "APPROVAL") {
             loanApplication.status =
@@ -120,6 +138,18 @@ const reviewLoanApplication = async (req, res, next) => {
 
         await loanApplication.save();
 
+        // Create audit trail entry
+        await createAuditLog({
+            loanApplication: loanApplication._id,
+            changedBy: req.user._id,
+            fromStatus: previousStatus,
+            toStatus: loanApplication.status,
+            reason: note.trim(),
+            metadata: {
+                recommendation
+            }
+        });
+        
         return res.status(200).json({
             message: "Officer review submitted successfully",
             loanApplication

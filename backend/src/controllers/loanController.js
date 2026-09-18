@@ -1,6 +1,7 @@
 const LoanApplication = require("../models/LoanApplication");
 const Document = require("../models/Document");
 const { calculateEMI } = require("../services/emiService");
+const { createAuditLog } = require("../services/auditService");
 
 const createLoanApplication = async (req, res, next) => {
     try {
@@ -202,11 +203,21 @@ const submitLoanApplication = async (req, res, next) => {
             });
         }
 
+        const previousStatus = loanApplication.status;
+
         // Submit the application
         loanApplication.status = "SUBMITTED";
         loanApplication.submittedAt = new Date();
 
         await loanApplication.save();
+
+        await createAuditLog({
+            loanApplication: loanApplication._id,
+            changedBy: req.user._id,
+            fromStatus: previousStatus,
+            toStatus: "SUBMITTED",
+            reason: "Loan application submitted by applicant"
+        });
 
         return res.status(200).json({
             message: "Loan application submitted successfully",
@@ -218,8 +229,124 @@ const submitLoanApplication = async (req, res, next) => {
     }
 };
 
+const getMyLoans = async (req, res, next) => {
+    try {
+        const loanApplications = await LoanApplication.find({
+            applicant: req.user._id
+        }).sort({
+            createdAt: -1
+        });
+
+        return res.status(200).json({
+            message: "Loan applications fetched successfully",
+            count: loanApplications.length,
+            loanApplications
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getLoanById = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        const loanApplication = await LoanApplication.findOne({
+            _id: id,
+            applicant: req.user._id
+        });
+
+        if (!loanApplication) {
+            return res.status(404).json({
+                message: "Loan application not found"
+            });
+        }
+
+        return res.status(200).json({
+            message: "Loan application fetched successfully",
+            loanApplication
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+const respondToMoreInfoRequest = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const { response } = req.body;
+
+        // Find the loan belonging to the logged-in applicant
+        const loanApplication = await LoanApplication.findOne({
+            _id: id,
+            applicant: req.user._id
+        });
+
+        if (!loanApplication) {
+            return res.status(404).json({
+                message: "Loan application not found"
+            });
+        }
+
+        // Applicant can respond only when more information is requested
+        if (loanApplication.status !== "MORE_INFO_NEEDED") {
+            return res.status(400).json({
+                message: "Application is not waiting for additional information"
+            });
+        }
+
+        // Response is required
+        if (!response || !response.trim()) {
+            return res.status(400).json({
+                message: "Response is required"
+            });
+        }
+
+        const previousStatus = loanApplication.status;
+
+        // Mark the latest information request as responded
+        const latestRequest =
+            loanApplication.additionalInfoRequests[
+                loanApplication.additionalInfoRequests.length - 1
+            ];
+
+        if (latestRequest) {
+            latestRequest.respondedAt = new Date();
+        }
+
+        // Move application back to submitted
+        loanApplication.status = "SUBMITTED";
+
+        await loanApplication.save();
+
+        // Create audit trail entry
+        await createAuditLog({
+            loanApplication: loanApplication._id,
+            changedBy: req.user._id,
+            fromStatus: previousStatus,
+            toStatus: "SUBMITTED",
+            reason: response.trim()
+        });
+
+        return res.status(200).json({
+            message: "Additional information submitted successfully",
+            loanApplication
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+
 module.exports = {
     createLoanApplication,
     updateLoanApplication,
-    submitLoanApplication
+    submitLoanApplication,
+    getMyLoans,
+    getLoanById,
+    respondToMoreInfoRequest
 };

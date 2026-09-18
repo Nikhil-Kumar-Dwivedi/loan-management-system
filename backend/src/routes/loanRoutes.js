@@ -3,7 +3,10 @@ const express = require("express");
 const {
     createLoanApplication,
     updateLoanApplication,
-    submitLoanApplication
+    submitLoanApplication,
+    getMyLoans,
+    getLoanById,
+    respondToMoreInfoRequest
 } = require("../controllers/loanController");
 
 const protect = require("../middleware/authMiddleware");
@@ -18,11 +21,32 @@ router.post(
     createLoanApplication
 );
 
+router.get(
+    "/my",
+    protect,
+    requireRole("APPLICANT"),
+    getMyLoans
+);
+
+router.get(
+    "/:id",
+    protect,
+    requireRole("APPLICANT"),
+    getLoanById
+);
+
 router.patch(
     "/:id",
     protect,
     requireRole("APPLICANT"),
     updateLoanApplication
+);
+
+router.post(
+    "/:id/respond",
+    protect,
+    requireRole("APPLICANT"),
+    respondToMoreInfoRequest
 );
 
 router.post(

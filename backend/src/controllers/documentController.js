@@ -17,10 +17,16 @@ const uploadDocument = async (req, res, next) => {
             });
         }
 
-        // Only draft applications can receive normal document uploads
-        if (loanApplication.status !== "DRAFT") {
+        // Documents can be uploaded for draft applications
+        // and when an officer requests additional information
+        const allowedStatuses = [
+            "DRAFT",
+            "MORE_INFO_NEEDED"
+        ];
+
+        if (!allowedStatuses.includes(loanApplication.status)) {
             return res.status(400).json({
-                message: "Documents can only be uploaded for draft applications"
+                message: "Documents cannot be uploaded at this stage"
             });
         }
 
