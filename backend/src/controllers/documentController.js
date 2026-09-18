@@ -68,6 +68,41 @@ const uploadDocument = async (req, res, next) => {
     }
 };
 
+const getLoanDocuments = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        // Check that the loan belongs to the logged-in applicant
+        const loanApplication = await LoanApplication.findOne({
+            _id: id,
+            applicant: req.user._id
+        });
+
+        if (!loanApplication) {
+            return res.status(404).json({
+                message: "Loan application not found"
+            });
+        }
+
+        const documents = await Document.find({
+            loanApplication: id
+        }).sort({
+            uploadedAt: -1
+        });
+
+        return res.status(200).json({
+            message: "Documents fetched successfully",
+            documents
+        });
+
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+
 module.exports = {
-    uploadDocument
+    uploadDocument,
+    getLoanDocuments
 };

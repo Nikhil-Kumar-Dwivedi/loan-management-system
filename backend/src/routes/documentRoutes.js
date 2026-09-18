@@ -1,7 +1,8 @@
 const express = require("express");
 
 const {
-    uploadDocument
+    uploadDocument,
+    getLoanDocuments
 } = require("../controllers/documentController");
 
 const protect = require("../middleware/authMiddleware");
@@ -17,6 +18,14 @@ router.post(
     requireRole("APPLICANT"),
     upload.single("document"),
     uploadDocument
+);
+
+// Get documents for a loan application
+router.get(
+    "/:id/documents",
+    protect,
+    requireRole("APPLICANT"),
+    getLoanDocuments
 );
 
 module.exports = router;
