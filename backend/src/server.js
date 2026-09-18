@@ -6,6 +6,7 @@ const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const loanRoutes = require("./routes/loanRoutes");
 const documentRoutes = require("./routes/documentRoutes");
+const officerRoutes = require("./routes/officerRoutes");
 
 dotenv.config();
 
@@ -19,6 +20,8 @@ app.use(express.json());
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/loans", loanRoutes);
 app.use("/api/v1/loans", documentRoutes);
+app.use("/api/v1/officer", officerRoutes);
+
 
 // Health check
 app.get("/", (req, res) => {
