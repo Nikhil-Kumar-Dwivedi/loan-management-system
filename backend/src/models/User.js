@@ -30,6 +30,10 @@ const userSchema = new mongoose.Schema(
             enum: ["APPLICANT", "LOAN_OFFICER", "ADMIN"],
             default: "APPLICANT"
         },
+        refreshToken: {
+            type: String,
+            select: false
+        },
 
         isActive: {
             type: Boolean,
