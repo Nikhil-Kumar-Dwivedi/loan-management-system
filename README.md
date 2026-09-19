@@ -135,7 +135,6 @@ Supported document formats:
 
 Maximum file size:
 
-```text
 5 MB
 
 Applicants can review their information before submitting the application.
@@ -382,7 +381,8 @@ Principal amount
 Interest amount
 Remaining balance
 
-------- screnshot
+<img width="1920" height="1080" alt="Screenshot (1653)" src="https://github.com/user-attachments/assets/14c39145-c771-4c9b-ba3d-69d08ff5d939" />
+
 
 
 🛠️ Technology Stack
@@ -777,6 +777,4 @@ npm run build
 
 Output Directory:
 dist
-
-
 
